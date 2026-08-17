@@ -1,0 +1,28 @@
+apiVersion: workloads.soha.io/v1alpha1
+kind: WorkloadCronJob
+metadata:
+  name: application-maintenance
+  namespace: default
+spec:
+  sourceRef:
+    kind: Deployment
+    name: application
+    container: application
+  targetContainer: task
+  cronJobSpec:
+    schedule: "0 2 * * *"
+    concurrencyPolicy: Forbid
+    successfulJobsHistoryLimit: 3
+    failedJobsHistoryLimit: 1
+    jobTemplate:
+      spec:
+        backoffLimit: 1
+        template:
+          spec:
+            restartPolicy: Never
+            containers:
+              - name: task
+                # Replaced from the source together with env, envFrom, and mounts.
+                image: application:snapshot
+                # Job-specific commands and arguments remain unchanged.
+                command: ["php", "artisan", "schedule:run"]

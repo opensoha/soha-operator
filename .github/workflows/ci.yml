@@ -1,0 +1,49 @@
+name: operator-ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.6"
+          cache: true
+      - name: Check module state
+        run: |
+          GOWORK=off go mod tidy
+          git diff --exit-code -- go.mod go.sum
+      - name: Verify module checksums
+        run: GOWORK=off go mod verify
+      - name: Generate API and manifests
+        run: |
+          make generate manifests
+          git diff --exit-code
+      - name: Test
+        run: GOWORK=off go test ./...
+      - name: Race test
+        run: GOWORK=off go test -race ./...
+      - name: Vet
+        run: GOWORK=off go vet ./...
+      - name: Govulncheck
+        run: GOWORK=off go run golang.org/x/vuln/cmd/govulncheck@v1.3.0 ./...
+      - name: Golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.9.0
+          only-new-issues: true
+          args: --timeout=5m
+      - name: Build
+        run: GOWORK=off CGO_ENABLED=0 go build -trimpath -o /tmp/soha-operator ./cmd/operator
+      - uses: azure/setup-kubectl@v5
+        with:
+          version: v1.35.1
+      - name: Validate Kubernetes manifests
+        run: kubectl kustomize config/default | go run github.com/yannh/kubeconform/cmd/kubeconform@v0.8.0 -kubernetes-version 1.35.1 -strict -skip CustomResourceDefinition -summary -
+      - name: Build image
+        run: docker build -f deploy/Dockerfile -t ghcr.io/opensoha/soha-operator:test .

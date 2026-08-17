@@ -1,0 +1,90 @@
+name: operator-release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.6"
+          cache: true
+      - name: Verify release version
+        run: |
+          set -euo pipefail
+          if ! [[ "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "release tag must use vX.Y.Z" >&2
+            exit 1
+          fi
+          version="${GITHUB_REF_NAME#v}"
+          grep -F "image: ghcr.io/opensoha/soha-operator:${version}" config/manager/manager.yaml
+      - name: Check module state
+        run: |
+          GOWORK=off go mod tidy
+          git diff --exit-code -- go.mod go.sum
+      - name: Verify module checksums
+        run: GOWORK=off go mod verify
+      - name: Generate API and manifests
+        run: |
+          make generate manifests
+          git diff --exit-code
+      - name: Test
+        run: GOWORK=off go test ./...
+      - name: Race test
+        run: GOWORK=off go test -race ./...
+      - name: Vet
+        run: GOWORK=off go vet ./...
+      - name: Govulncheck
+        run: GOWORK=off go run golang.org/x/vuln/cmd/govulncheck@v1.3.0 ./...
+      - name: Golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.9.0
+          only-new-issues: true
+          args: --timeout=5m
+      - name: Build
+        run: GOWORK=off CGO_ENABLED=0 go build -trimpath -o /tmp/soha-operator ./cmd/operator
+      - uses: azure/setup-kubectl@v5
+        with:
+          version: v1.35.1
+      - name: Validate Kubernetes manifests
+        run: kubectl kustomize config/default | go run github.com/yannh/kubeconform/cmd/kubeconform@v0.8.0 -kubernetes-version 1.35.1 -strict -skip CustomResourceDefinition -summary -
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate image metadata
+        id: metadata
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/opensoha/soha-operator
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=raw,value=latest
+      - name: Publish operator image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true

@@ -1,0 +1,42 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: soha-operator-manager-role
+rules:
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - deployments
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - workloads.soha.io
+  resources:
+  - workloadcronjobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - workloads.soha.io
+  resources:
+  - workloadcronjobs/status
+  verbs:
+  - get
+  - patch
+  - update
