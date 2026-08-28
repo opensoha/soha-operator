@@ -413,7 +413,7 @@ func (r *WorkloadCronJobReconciler) requestsForSource(ctx context.Context, sourc
 	var resources workloadsv1alpha1.WorkloadCronJobList
 	key := sourceReferenceKey(source.GetNamespace(), workloadsv1alpha1.WorkloadReference{Kind: kind, Name: source.GetName()})
 	if err := r.List(ctx, &resources, client.InNamespace(source.GetNamespace()), client.MatchingFields{sourceReferenceIndex: key}); err != nil {
-		log.FromContext(ctx).Error(err, "unable to list WorkloadCronJobs for source", "kind", kind, "namespace", source.GetNamespace(), "name", source.GetName())
+		log.FromContext(ctx).Error(err, "unable to list WorkloadCronJobs for source", "event", "workloadcronjob.source_list_failed", "kind", kind, "namespace", source.GetNamespace(), "name", source.GetName())
 		return nil
 	}
 	requests := make([]reconcile.Request, 0, len(resources.Items))
