@@ -1,9 +1,6 @@
 ---
 name: soha-operator
-description: >-
-  Implement or review the standalone Soha Kubernetes operator, WorkloadCronJob
-  API, reconcilers, generated CRDs and RBAC, native deployment manifests,
-  container image, tests, and operator documentation.
+description: Change or review the standalone Soha Kubernetes operator, its CRDs, reconciliation, RBAC, and packaging.
 ---
 
 # Soha Operator
@@ -25,7 +22,9 @@ description: >-
 
 ## Verification
 
-Use Go 1.26.6 and run:
+Use focused controller tests for local behavior changes. The full gate below applies to API,
+RBAC, architecture, concurrency, dependencies, packaging, and releases. Collaboration skill
+edits need metadata/link validation, not generation or Docker builds. Use Go 1.26.6:
 
 ```sh
 GOWORK=off go mod tidy
