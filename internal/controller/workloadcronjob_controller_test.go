@@ -53,6 +53,42 @@ func TestReconcileSupportsAllSourceKinds(t *testing.T) {
 			if current.Status.SourceImage != "source:v2" || current.Status.CronJobRef == nil {
 				t.Fatalf("status = %#v", current.Status)
 			}
+			if current.Status.CronJobRef.ResourceVersion == "" || current.Status.CronJobRef.ResourceVersion != target.ResourceVersion {
+				t.Fatal("status must identify the observed CronJob version")
+			}
+		})
+	}
+}
+
+func TestDeletingWorkloadCronJobSuspendsWithoutRecreatingOrRemovingFinalizers(t *testing.T) {
+	for _, exists := range []bool{false, true} {
+		t.Run(map[bool]string{false: "no target", true: "existing target"}[exists], func(t *testing.T) {
+			resource := testWorkloadCronJob(workloadsv1alpha1.WorkloadKindDeployment)
+			resource.Finalizers = []string{"example.com/hold"}
+			reconciler := newTestReconciler(t, resource, testDeployment("source:v1"))
+			if exists {
+				reconcileOnce(t, reconciler)
+			}
+			mustGet(t, reconciler.Client, client.ObjectKeyFromObject(resource), resource)
+			if err := reconciler.Delete(context.Background(), resource); err != nil {
+				t.Fatal(err)
+			}
+			reconcileOnce(t, reconciler)
+			mustGet(t, reconciler.Client, client.ObjectKeyFromObject(resource), resource)
+			if resource.DeletionTimestamp == nil || len(resource.Finalizers) != 1 {
+				t.Fatal("deletion boundary was lost")
+			}
+			var target batchv1.CronJob
+			err := reconciler.Get(context.Background(), client.ObjectKeyFromObject(resource), &target)
+			if !exists {
+				if !apierrors.IsNotFound(err) {
+					t.Fatalf("deletion created a target: %v", err)
+				}
+				return
+			}
+			if err != nil || target.Spec.Suspend == nil || !*target.Spec.Suspend {
+				t.Fatalf("deleting resource did not suspend its target: %v", err)
+			}
 		})
 	}
 }

@@ -2,3 +2,4 @@
 /coverage.out
 /.tmp/
 /graphify-out/
+.DS_Store

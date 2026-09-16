@@ -64,6 +64,13 @@ func (r *WorkloadCronJobReconciler) Reconcile(ctx context.Context, request ctrl.
 	if err := r.Get(ctx, request.NamespacedName, &resource); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	if resource.DeletionTimestamp != nil {
+		_, err := r.suspendOwnedCronJob(ctx, &resource)
+		if errors.Is(err, errTargetConflict) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
 
 	source, err := r.observeSource(ctx, &resource)
 	if err != nil {
@@ -380,6 +387,7 @@ func (r *WorkloadCronJobReconciler) updateStatus(
 	if target != nil {
 		next.CronJobRef = &corev1.ObjectReference{
 			APIVersion: "batch/v1", Kind: "CronJob", Namespace: target.Namespace, Name: target.Name, UID: target.UID,
+			ResourceVersion: target.ResourceVersion,
 		}
 	}
 	meta.SetStatusCondition(&next.Conditions, metav1.Condition{

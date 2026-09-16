@@ -12,6 +12,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -21,9 +22,11 @@ func main() {
 	var metricsAddress string
 	var probeAddress string
 	var leaderElection bool
+	var watchNamespace string
 	flag.StringVar(&metricsAddress, "metrics-bind-address", ":8080", "Address for the metrics endpoint.")
 	flag.StringVar(&probeAddress, "health-probe-bind-address", ":8081", "Address for health probes.")
 	flag.BoolVar(&leaderElection, "leader-elect", false, "Enable leader election.")
+	flag.StringVar(&watchNamespace, "watch-namespace", "", "Watch only this namespace; empty watches all namespaces.")
 	zapOptions := newZapOptions()
 	zapOptions.BindFlags(flag.CommandLine)
 	flag.Parse()
@@ -34,14 +37,18 @@ func main() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(workloadsv1alpha1.AddToScheme(scheme))
 
-	manager, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	options := ctrl.Options{
 		Scheme:                        scheme,
 		Metrics:                       metricsserver.Options{BindAddress: metricsAddress},
 		HealthProbeBindAddress:        probeAddress,
 		LeaderElection:                leaderElection,
 		LeaderElectionID:              "soha-operator.workloads.soha.io",
 		LeaderElectionReleaseOnCancel: true,
-	})
+	}
+	if watchNamespace != "" {
+		options.Cache.DefaultNamespaces = map[string]cache.Config{watchNamespace: {}}
+	}
+	manager, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
 	if err != nil {
 		setupLog.Error(err, "unable to create manager", "event", "operator.manager.create_failed")
 		os.Exit(1)
