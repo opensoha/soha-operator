@@ -1,7 +1,19 @@
 # Soha Operator 仓库入口
 
+## 入口与边界
+
 - 本仓负责独立 Kubernetes Operator、CRD、controller 和 RBAC；不得 import `soha/internal/**`，也不得依赖控制平面才能在集群内协调。
-- 在 OpenSoha 多仓工作区中读取 `../AGENTS.md` 一次；独立克隆时使用本仓规则，不要求初始化相邻仓库或规划工具。
-- Operator 实现或审查按需使用 [soha-operator](.agents/skills/soha-operator/SKILL.md)，保留 reconcile 幂等性、权限和状态边界。
-- Go 改动先验证受影响包；完整入口为 `make verify`，API/RBAC 变化通过 `make generate manifests` 更新生成物。命令、工具版本和镜像门禁以 [CI](.github/workflows/ci.yml) 为准。
-- 文档和技能改动只检查内容、链接与差异；相关代码和环境未变化时复用成功验证，保留用户未提交改动。
+- 在已确认的 OpenSoha 多仓工作区读取 `../AGENTS.md` 一次；独立克隆使用本仓规则，不要求相邻仓库或规划工具。技能符号链接仅用于发现。
+- 实现或实质审查前读取 [soha-operator](.agents/skills/soha-operator/SKILL.md) 及当前任务相关参考；只读查询按需定位。已读且未变化的规则可复用，交接后缺少约束时补读必要部分。
+- 先确认 API、reconcile、watch/scope、资源所有权、状态或打包的所属位置、调用者与预期行为。保留幂等协调、删除/清理、权限和状态边界，不为局部需求扩大集群权限或引入 Core 内部依赖。
+- API/RBAC 变化先改真实源，再通过 `make generate manifests` 更新生成物；不要手改生成 CRD 或清单以绕过源定义。公开协议变化按 contracts 所有权处理，不假定所有 CRD 都属于共享 HTTP 契约。
+- 既有代码用于核实行为，不自动代表有效设计目标。规则冲突需记录依据；技能和历史未完成项不授权安装到真实集群、扩展范围或发布。
+
+## 验证与完成
+
+- Go 变更先验证受影响包；完整入口为 `make verify`。命令、工具版本及镜像门禁以 [CI](.github/workflows/ci.yml) 和仓库脚本为准，保留现有必需检查。
+- 按行为覆盖重复协调、scope/watch、删除中资源、失败重试和状态更新；只有本次涉及的场景需要新增定向回归。fake client、envtest、真实集群和安装升级分别记录，编译或清单生成不代表协调链路通过。
+- 共享控制器或 API 变化识别消费者及生成物，扩大回归；不通过放宽断言、跳过测试或修改基线掩盖新问题。
+- 按仓库记录提交、实际命令及通过/失败/跳过/未运行/环境缺失。成功证据只在相关代码、依赖和环境未变化时复用。
+- 文档/技能修改检查内容、引用与差异，不机械部署集群。保留用户工作树，仅提交任务所属文件；未请求时不合并 PR、不安装或发布。
+- 保留同命名空间 source/target 引用、删除或失效时安全暂停、不接管外部资源的边界；覆盖 source 缺失/删除与外部所有者场景。局部修复不顺手增加通用操作 CRD、数据库、轮询、webhook 或 finalizer。
