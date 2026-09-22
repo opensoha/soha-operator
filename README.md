@@ -24,7 +24,7 @@ helm install soha-operator opensoha/soha-operator \
 Or apply the versioned Kustomize manifests:
 
 ```sh
-kubectl apply -k "https://github.com/opensoha/soha-operator//config/default?ref=v0.1.0"
+kubectl apply -k "https://github.com/opensoha/soha-operator//config/default?ref=v0.1.1"
 ```
 
 The install creates the CRD, controller Deployment, ServiceAccount, and least-privilege cluster RBAC. Helm packaging lives in [`opensoha/soha-helm`](https://github.com/opensoha/soha-helm).
