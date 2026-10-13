@@ -57,7 +57,11 @@ make test-race
 make docker-build
 ```
 
-Use Go 1.26.6. Generated deep-copy code, CRD schemas, and RBAC are produced with `controller-gen v0.20.0`.
+Use Go 1.27.2 and Kubernetes Go modules 0.37.1 with controller-runtime 0.25.2. Generated deep-copy code, CRD schemas, and RBAC are produced with `controller-gen v0.22.0`.
+
+Use the Makefile commands or `GOWORK=off` in the multi-repository workspace so sibling modules do not override the Operator's types during generation or builds.
+
+The CRD embeds native `CronJobSpec`. The former Pod `workloadRef` field belonged to Kubernetes GenericWorkload group scheduling and was replaced upstream by `schedulingGroup` in Kubernetes 1.36. It is unrelated to the Operator's `spec.sourceRef`, which still selects the source workload and container. Repository consumers do not set the removed field; external manifests that used it must migrate before upgrading the CRD. The Operator retains the CronJob's declared scheduling snapshot and does not copy the source Pod's scheduling group.
 
 ## License
 

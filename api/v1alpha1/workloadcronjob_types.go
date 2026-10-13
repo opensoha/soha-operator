@@ -77,7 +77,3 @@ type WorkloadCronJobList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []WorkloadCronJob `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&WorkloadCronJob{}, &WorkloadCronJobList{})
-}

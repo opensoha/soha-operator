@@ -154,6 +154,26 @@ func TestReconcileUpdatesRuntimeEnvironmentWhenSourceChanges(t *testing.T) {
 	assertRuntimeEnvironmentCleared(t, reconciler.Client)
 }
 
+func TestReconcilePreservesCronJobSchedulingGroup(t *testing.T) {
+	resource := testWorkloadCronJob(workloadsv1alpha1.WorkloadKindDeployment)
+	source := testDeployment("source:v1")
+	sourceGroupName, cronJobGroupName := "source-group", "cronjob-group"
+	source.Spec.Template.Spec.SchedulingGroup = &corev1.PodSchedulingGroup{PodGroupName: &sourceGroupName}
+	group := &corev1.PodSchedulingGroup{PodGroupName: &cronJobGroupName}
+	resource.Spec.CronJobSpec.JobTemplate.Spec.Template.Spec.SchedulingGroup = group
+	reconciler := newTestReconciler(t, resource, source)
+	reconcileOnce(t, reconciler)
+
+	var target batchv1.CronJob
+	mustGet(t, reconciler.Client, types.NamespacedName{Namespace: "default", Name: "nightly"}, &target)
+	if !equality.Semantic.DeepEqual(target.Spec.JobTemplate.Spec.Template.Spec.SchedulingGroup, group) {
+		t.Fatal("CronJob scheduling group did not retain its declared snapshot")
+	}
+	if target.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image != "source:v1" {
+		t.Fatal("target image did not follow sourceRef")
+	}
+}
+
 func TestReconcileRejectsMissingSourceVolume(t *testing.T) {
 	resource := testWorkloadCronJob(workloadsv1alpha1.WorkloadKindDeployment)
 	source := testDeployment("source:v1")

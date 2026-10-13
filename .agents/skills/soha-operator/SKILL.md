@@ -24,7 +24,7 @@ description: Change or review the standalone Soha Kubernetes operator, its CRDs,
 
 Use focused controller tests for local behavior changes. The full gate below applies to API,
 RBAC, architecture, concurrency, dependencies, packaging, and releases. Collaboration skill
-edits need metadata/link validation, not generation or Docker builds. Use Go 1.26.6:
+edits need metadata/link validation, not generation or Docker builds. Use Go 1.27.2:
 
 ```sh
 GOWORK=off go mod tidy
@@ -35,7 +35,7 @@ git diff --exit-code
 GOWORK=off go test ./...
 GOWORK=off go test -race ./...
 GOWORK=off go vet ./...
-GOWORK=off go run golang.org/x/vuln/cmd/govulncheck@v1.3.0 ./...
+GOWORK=off go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 GOWORK=off CGO_ENABLED=0 go build -trimpath -o /tmp/soha-operator ./cmd/operator
 kubectl kustomize config/default | go run github.com/yannh/kubeconform/cmd/kubeconform@v0.8.0 -kubernetes-version 1.35.1 -strict -summary -
 docker build -f deploy/Dockerfile -t ghcr.io/opensoha/soha-operator:test .
