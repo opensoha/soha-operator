@@ -15,6 +15,7 @@ description: Change or review the standalone Soha Kubernetes operator, its CRDs,
 
 ## Boundaries
 
+- Keep this repository, Go module, development skill, CRD generation and image lifecycle independent. Core and shared HTTP contract source live in the main `opensoha/soha` repository (root and `contracts/`); that does not transfer Operator CRD ownership or require a Core checkout to build the Operator.
 - Do not import `github.com/opensoha/soha/internal/**` or depend on the Soha control plane at runtime.
 - Add focused CRDs rather than a universal operation schema. New APIs need a concrete controller, status contract, least-privilege RBAC, tests, and an installation path.
 - Use controller-runtime watches and owner references. Do not add polling loops, databases, webhooks, or finalizers without a demonstrated lifecycle requirement.

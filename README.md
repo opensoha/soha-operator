@@ -51,6 +51,13 @@ For a namespace-scoped installation, run the controller with `--watch-namespace=
 
 ## Development
 
+Operator remains a standalone repository, Go module and runtime. Core and its
+shared HTTP contracts are maintained in `opensoha/soha` (root and `contracts/`),
+while this repository owns the CRDs, native manifests and
+[development skill](.agents/skills/soha-operator/SKILL.md). Helm chart sources
+remain in the independent `opensoha/soha-helm` repository; an Operator build does
+not require the Core source tree.
+
 ```sh
 make verify
 make test-race

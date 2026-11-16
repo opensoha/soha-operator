@@ -3,6 +3,7 @@
 ## 入口与边界
 
 - 本仓负责独立 Kubernetes Operator、CRD、controller 和 RBAC；不得 import `soha/internal/**`，也不得依赖控制平面才能在集群内协调。
+- 本仓及其 [开发技能](.agents/skills/soha-operator/SKILL.md)继续独立维护，不并入 `soha`。Core 与公开协议源码分别在主仓根和 `soha/contracts`；Operator API/CRD 仍由本仓拥有，Helm chart 仍由独立 `soha-helm` 拥有。
 - 在已确认的 OpenSoha 多仓工作区读取 `../AGENTS.md` 一次；独立克隆使用本仓规则，不要求相邻仓库或规划工具。技能符号链接仅用于发现。
 - 实现或实质审查前读取 [soha-operator](.agents/skills/soha-operator/SKILL.md) 及当前任务相关参考；只读查询按需定位。已读且未变化的规则可复用，交接后缺少约束时补读必要部分。
 - 先确认 API、reconcile、watch/scope、资源所有权、状态或打包的所属位置、调用者与预期行为。保留幂等协调、删除/清理、权限和状态边界，不为局部需求扩大集群权限或引入 Core 内部依赖。
