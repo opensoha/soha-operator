@@ -81,7 +81,7 @@ make test-race
 make docker-build
 ```
 
-Use Go 1.27.2 and Kubernetes Go modules 0.37.1 with controller-runtime 0.25.2. Generated deep-copy code, CRD schemas, and RBAC are produced with `controller-gen v0.22.0`.
+Use Go 1.27.4 and Kubernetes Go modules 0.37.1 with controller-runtime 0.25.2. Generated deep-copy code, CRD schemas, and RBAC are produced with `controller-gen v0.22.0`.
 
 Use the Makefile commands or `GOWORK=off` in the multi-repository workspace so sibling modules do not override the Operator's types during generation or builds.
 

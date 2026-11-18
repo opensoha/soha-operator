@@ -1,6 +1,6 @@
 module github.com/opensoha/soha-operator
 
-go 1.27.2
+go 1.27.4
 
 require (
 	go.uber.org/zap v1.28.0
