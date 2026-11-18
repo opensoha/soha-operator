@@ -25,7 +25,7 @@ description: Change or review the standalone Soha Kubernetes operator, its CRDs,
 
 Use focused controller tests for local behavior changes. The full gate below applies to API,
 RBAC, architecture, concurrency, dependencies, packaging, and releases. Collaboration skill
-edits need metadata/link validation, not generation or Docker builds. Use Go 1.27.2:
+edits need metadata/link validation, not generation or Docker builds. Use Go 1.27.4:
 
 ```sh
 GOWORK=off go mod tidy

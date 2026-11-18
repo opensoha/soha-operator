@@ -11,6 +11,18 @@ The selected container's image, `env`, `envFrom`, `volumeMounts`, and referenced
 
 ## Install
 
+Default installation inputs pair the released `0.1.1` controller with its exact
+Kubernetes 0.35.1 CRD. The checked-out `config/default` profile uses the preserved
+CRD in `config/release/v0.1.1`; `config/crd/bases` remains the current development
+schema and is not part of that profile.
+
+**Existing installations:** keep your installed CRD and controller on their matching
+version. Do not apply the stable CRD over an existing Kubernetes 0.37 schema or
+replace its controller with `0.1.1`: that would downgrade the API/runtime pair and
+can lose fields. Do not delete/recreate CRDs or prune stored WorkloadCronJobs to
+switch profiles. See Development for the current schema and a matching custom
+image. Helm does not upgrade existing CRDs automatically.
+
 Install the released Helm chart:
 
 ```sh
@@ -26,6 +38,11 @@ Or apply the versioned Kustomize manifests:
 ```sh
 kubectl apply -k "https://github.com/opensoha/soha-operator//config/default?ref=v0.1.1"
 ```
+
+For a fresh installation from this checkout, `kubectl apply -k config/default`
+uses the same stable schema/image pair. The release CRD is copied unchanged from
+Git tag `v0.1.1` (commit `1ab625355a8555fd54f363dac6edbcf0e5e9b334`), not regenerated
+from the current Go API.
 
 The install creates the CRD, controller Deployment, ServiceAccount, and least-privilege cluster RBAC. Helm packaging lives in [`opensoha/soha-helm`](https://github.com/opensoha/soha-helm).
 
@@ -64,11 +81,43 @@ make test-race
 make docker-build
 ```
 
-Use Go 1.27.2 and Kubernetes Go modules 0.37.1 with controller-runtime 0.25.2. Generated deep-copy code, CRD schemas, and RBAC are produced with `controller-gen v0.22.0`.
+Use Go 1.27.4 and Kubernetes Go modules 0.37.1 with controller-runtime 0.25.2. Generated deep-copy code, CRD schemas, and RBAC are produced with `controller-gen v0.22.0`.
 
 Use the Makefile commands or `GOWORK=off` in the multi-repository workspace so sibling modules do not override the Operator's types during generation or builds.
 
-The CRD embeds native `CronJobSpec`. The former Pod `workloadRef` field belonged to Kubernetes GenericWorkload group scheduling and was replaced upstream by `schedulingGroup` in Kubernetes 1.36. It is unrelated to the Operator's `spec.sourceRef`, which still selects the source workload and container. Repository consumers do not set the removed field; external manifests that used it must migrate before upgrading the CRD. The Operator retains the CronJob's declared scheduling snapshot and does not copy the source Pod's scheduling group.
+### Current schema and custom image
+
+The current source and generated `config/crd/bases` schema use Kubernetes 0.37.1.
+They include `schedulingGroup` and `defaultUser`, which the released `0.1.1`
+controller cannot preserve. Build a matching image from the same source checkout;
+do not retag or overwrite the published `0.1.1` image.
+
+```sh
+make docker-build  # builds ghcr.io/opensoha/soha-operator:local
+# Load that image into your development cluster before applying this profile.
+kubectl apply -k config/development
+```
+
+`config/development` includes the current CRD and explicitly selects the `local`
+image. For a registry-backed build, use `make docker-build IMAGE=<your-image>`,
+push that custom image, and set its name/tag in your own Kustomize overlay of
+`config/development`. Use a Kubernetes cluster that supports the declared native
+CronJob fields. Review stored CRs and CRD changes before upgrading an existing
+installation; keep its matching controller image and do not apply `config/default`
+as a rollback. No profile performs data migration or CRD deletion.
+
+To use the Helm chart with this current source schema, first review and explicitly
+apply `config/crd` from the same checkout, then install/upgrade with `--skip-crds`
+and an explicit matching custom image. See the chart README for that workflow;
+never use the chart's default `0.1.1` image with this schema.
+
+Run the offline installation-pairing checks with:
+
+```sh
+python3 -B -m unittest discover -s config -p 'test_*.py'
+```
+
+The current CRD embeds native `CronJobSpec`. The former Pod `workloadRef` field belonged to Kubernetes GenericWorkload group scheduling and was replaced upstream by `schedulingGroup` in Kubernetes 1.36. It is unrelated to the Operator's `spec.sourceRef`, which still selects the source workload and container. Repository consumers do not set the removed field; external manifests that used it must migrate before upgrading the CRD. The Operator retains the CronJob's declared scheduling snapshot and does not copy the source Pod's scheduling group.
 
 ## License
 

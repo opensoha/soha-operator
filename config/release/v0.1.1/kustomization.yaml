@@ -1,0 +1,5 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Exact CRD from v0.1.1 (1ab625355a8555fd54f363dac6edbcf0e5e9b334), paired with image 0.1.1.
+resources:
+  - workloads.soha.io_workloadcronjobs.yaml
