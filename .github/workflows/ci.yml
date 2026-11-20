@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}
       - uses: actions/setup-go@v6
         with:
           go-version: "1.27.4"
@@ -32,12 +34,28 @@ jobs:
         run: GOWORK=off go vet ./...
       - name: Govulncheck
         run: GOWORK=off go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+      - name: Prepare PR lint patch
+        id: pr-lint-patch
+        if: github.event_name == 'pull_request'
+        env:
+          LINT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$LINT_BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          git cat-file -e "${LINT_BASE_SHA}^{commit}"
+          git merge-base --is-ancestor "$LINT_BASE_SHA" HEAD
+          patch_path="${RUNNER_TEMP}/soha-operator-pr-lint.patch"
+          git diff --no-ext-diff --no-textconv --no-color --binary "$LINT_BASE_SHA" HEAD > "$patch_path"
+          test -s "$patch_path"
+          printf 'args=--new-from-patch="%s"\n' "$patch_path" >> "$GITHUB_OUTPUT"
       - name: Golangci-lint
         uses: golangci/golangci-lint-action@v9
+        env:
+          GOWORK: 'off'
         with:
           version: v2.14.0
-          only-new-issues: true
-          args: --timeout=5m
+          only-new-issues: ${{ github.event_name != 'pull_request' }}
+          args: --timeout=5m ${{ steps.pr-lint-patch.outputs.args }}
       - name: Build
         run: GOWORK=off CGO_ENABLED=0 go build -trimpath -o /tmp/soha-operator ./cmd/operator
       - uses: azure/setup-kubectl@v5
