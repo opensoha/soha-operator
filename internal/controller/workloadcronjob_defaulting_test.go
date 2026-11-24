@@ -52,7 +52,7 @@ func TestEnsureCronJobHandlesAPIDefaults(t *testing.T) {
 			},
 		},
 		{
-			name: "metadata drift skips dry run", wantUpdates: 1,
+			name: "metadata drift updates after dry run", wantDryRuns: 1, wantUpdates: 1,
 			mutate: func(existing, _ *batchv1.CronJob) {
 				existing.Labels["unexpected"] = "drift"
 			},
@@ -133,12 +133,13 @@ func TestEnsureCronJobHandlesAPIDefaults(t *testing.T) {
 					t.Fatal("real change or deliberate reset was not persisted")
 				}
 			}
-			if tt.name == "native defaults" {
+			if tt.name == "native defaults" || tt.name == "admission metadata change is persisted" {
+				wantBefore := updates.updates
 				if _, err := reconciler.ensureCronJob(context.Background(), resource, desired.DeepCopy()); err != nil {
 					t.Fatal(err)
 				}
-				if updates.dryRuns != 2 || updates.updates != 0 {
-					t.Fatal("repeated reconciliation persisted an unchanged CronJob")
+				if updates.dryRuns != 2 || updates.updates != wantBefore {
+					t.Fatalf("repeated reconciliation persisted an unchanged CronJob: dry runs/updates = %d/%d", updates.dryRuns, updates.updates)
 				}
 			}
 		})

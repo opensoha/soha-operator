@@ -27,6 +27,7 @@ jobs:
           fi
           version="${GITHUB_REF_NAME#v}"
           grep -F "image: ghcr.io/opensoha/soha-operator:${version}" config/manager/manager.yaml
+          grep -F "../release/v${version}" config/default/kustomization.yaml
       - name: Check module state
         run: |
           GOWORK=off go mod tidy
@@ -37,8 +38,6 @@ jobs:
         run: |
           make generate manifests
           git diff --exit-code
-      - name: Test
-        run: GOWORK=off go test ./...
       - name: Race test
         run: GOWORK=off go test -race ./...
       - name: Vet
@@ -57,7 +56,9 @@ jobs:
         with:
           version: v1.35.1
       - name: Validate Kubernetes manifests
-        run: kubectl kustomize config/default | go run github.com/yannh/kubeconform/cmd/kubeconform@v0.8.0 -kubernetes-version 1.35.1 -strict -skip CustomResourceDefinition -summary -
+        run: |
+          kubectl kustomize config/default | go run github.com/yannh/kubeconform/cmd/kubeconform@v0.8.0 -kubernetes-version 1.35.1 -strict -skip CustomResourceDefinition -summary -
+          python3 -B -m unittest discover -s config -p 'test_*.py'
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - name: Login to GHCR
