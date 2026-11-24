@@ -241,6 +241,54 @@ func TestReconcileSuspendsTargetWhenSourceDisappears(t *testing.T) {
 	}
 }
 
+func TestReconcileSafelyPausesWhenSourceIsDeleting(t *testing.T) {
+	sources := []struct {
+		kind   workloadsv1alpha1.WorkloadKind
+		source client.Object
+	}{
+		{workloadsv1alpha1.WorkloadKindDeployment, testDeployment("source:v1")},
+		{workloadsv1alpha1.WorkloadKindStatefulSet, testStatefulSet("source:v1")},
+		{workloadsv1alpha1.WorkloadKindDaemonSet, testDaemonSet("source:v1")},
+	}
+	for _, tt := range sources {
+		for _, exists := range []bool{false, true} {
+			t.Run(string(tt.kind)+map[bool]string{false: "/no-target", true: "/existing-target"}[exists], func(t *testing.T) {
+				source := tt.source.DeepCopyObject().(client.Object)
+				source.SetFinalizers([]string{"example.com/hold"})
+				resource := testWorkloadCronJob(tt.kind)
+				reconciler := newTestReconciler(t, resource, source)
+				if exists {
+					reconcileOnce(t, reconciler)
+				}
+				if err := reconciler.Delete(context.Background(), source); err != nil {
+					t.Fatalf("delete source: %v", err)
+				}
+				for range 2 {
+					reconcileOnce(t, reconciler)
+				}
+				mustGet(t, reconciler.Client, client.ObjectKeyFromObject(source), source)
+				if source.GetDeletionTimestamp() == nil || len(source.GetFinalizers()) != 1 {
+					t.Fatal("source deletion boundary was lost")
+				}
+				var target batchv1.CronJob
+				err := reconciler.Get(context.Background(), client.ObjectKeyFromObject(resource), &target)
+				if !exists {
+					if !apierrors.IsNotFound(err) {
+						t.Fatalf("deleting source created a target: %v", err)
+					}
+				} else if err != nil || target.Spec.Suspend == nil || !*target.Spec.Suspend {
+					t.Fatalf("deleting source did not suspend its target: %v", err)
+				}
+				mustGet(t, reconciler.Client, client.ObjectKeyFromObject(resource), resource)
+				ready := meta.FindStatusCondition(resource.Status.Conditions, conditionReady)
+				if ready == nil || ready.Status != metav1.ConditionFalse || ready.Reason != "SourceDeleting" {
+					t.Fatalf("Ready condition = %#v", ready)
+				}
+			})
+		}
+	}
+}
+
 func TestReconcileDoesNotAdoptForeignCronJob(t *testing.T) {
 	resource := testWorkloadCronJob(workloadsv1alpha1.WorkloadKindDeployment)
 	foreign := &batchv1.CronJob{

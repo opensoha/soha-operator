@@ -1,0 +1,14 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - nolintlint
+  settings:
+    nolintlint:
+      require-specific: true
+      require-explanation: true
+
+formatters:
+  enable:
+    - gofmt

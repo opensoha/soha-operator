@@ -85,6 +85,8 @@ Use Go 1.27.4 and Kubernetes Go modules 0.37.1 with controller-runtime 0.25.2. G
 
 Use the Makefile commands or `GOWORK=off` in the multi-repository workspace so sibling modules do not override the Operator's types during generation or builds.
 
+With golangci-lint 2.14.0 installed, run local lint with `GOWORK=off golangci-lint run --timeout=5m`.
+
 ### Current schema and custom image
 
 The current source and generated `config/crd/bases` schema use Kubernetes 0.37.1.

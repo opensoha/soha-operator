@@ -35,6 +35,7 @@ const (
 var (
 	errSourceContainerNotFound = errors.New("source container not found")
 	errSourceVolumeNotFound    = errors.New("source volume not found")
+	errSourceDeleting          = errors.New("source workload is being deleted")
 	errTargetContainerNotFound = errors.New("target container not found")
 	errInvalidCronJobSpec      = errors.New("invalid CronJob spec")
 	errTargetConflict          = errors.New("target CronJob is not controlled by this WorkloadCronJob")
@@ -126,6 +127,8 @@ func classifySourceError(err error) (reason, message string, retryErr error) {
 		return "SourceContainerNotFound", err.Error(), nil
 	case errors.Is(err, errSourceVolumeNotFound):
 		return "SourceVolumeNotFound", err.Error(), nil
+	case errors.Is(err, errSourceDeleting):
+		return "SourceDeleting", err.Error(), nil
 	case errors.Is(err, errInvalidCronJobSpec):
 		return "InvalidSpec", err.Error(), nil
 	default:
@@ -161,6 +164,9 @@ func (r *WorkloadCronJobReconciler) observeSource(ctx context.Context, resource 
 
 func observedSourceFrom(metadata metav1.ObjectMeta, podSpec corev1.PodSpec, containerName string) (observedSource, error) {
 	state := observedSource{UID: string(metadata.UID), ResourceVersion: metadata.ResourceVersion}
+	if metadata.DeletionTimestamp != nil {
+		return state, errSourceDeleting
+	}
 	for _, container := range podSpec.Containers {
 		if container.Name == containerName {
 			state.Container = *container.DeepCopy()
@@ -333,10 +339,22 @@ func (r *WorkloadCronJobReconciler) ensureCronJob(ctx context.Context, owner *wo
 	desired.UID = existing.UID
 	desired.CreationTimestamp = existing.CreationTimestamp
 	desired.Finalizers = slices.Clone(existing.Finalizers)
-	if equality.Semantic.DeepEqual(existing.Spec, desired.Spec) &&
-		equality.Semantic.DeepEqual(existing.Labels, desired.Labels) &&
+	metadataMatches := equality.Semantic.DeepEqual(existing.Labels, desired.Labels) &&
 		equality.Semantic.DeepEqual(existing.Annotations, desired.Annotations) &&
-		equality.Semantic.DeepEqual(existing.OwnerReferences, desired.OwnerReferences) {
+		equality.Semantic.DeepEqual(existing.OwnerReferences, desired.OwnerReferences)
+	if metadataMatches && equality.Semantic.DeepEqual(existing.Spec, desired.Spec) {
+		return &existing, nil
+	}
+	// Ask the API to default nested Job and Pod fields (and apply admission webhooks) without persisting a no-op update.
+	defaulted := desired.DeepCopy()
+	if err := r.Update(ctx, defaulted, client.DryRunAll); err != nil {
+		if !apierrors.IsBadRequest(err) || !strings.HasPrefix(err.Error(), "admission webhook ") || !strings.HasSuffix(err.Error(), " does not support dry run") {
+			return nil, err
+		}
+	} else if equality.Semantic.DeepEqual(existing.Spec, defaulted.Spec) &&
+		equality.Semantic.DeepEqual(existing.Labels, defaulted.Labels) &&
+		equality.Semantic.DeepEqual(existing.Annotations, defaulted.Annotations) &&
+		equality.Semantic.DeepEqual(existing.OwnerReferences, defaulted.OwnerReferences) {
 		return &existing, nil
 	}
 	if err := r.Update(ctx, desired); err != nil {
